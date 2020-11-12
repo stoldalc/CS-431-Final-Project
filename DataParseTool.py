@@ -3,14 +3,26 @@ Created on Sun Nov  1 21:54:17 2020
 
 @author: Christian
 """
+import pyparsing as pp
+from pyparsing import Literal
+import time as timer
+from pathlib import Path
+
+
+amazonMetaFile =  Path("amazon-meta.txt")
+ASINListFile = Path('D:\Media\Documents\Edumacate\FALL 2020\CS 431\Amazon data set\CS-431-Final-Project\Lists\ASINList.txt')
+CategoriesListFile = Path('D:\Media\Documents\Edumacate\FALL 2020\CS 431\Amazon data set\CS-431-Final-Project\Lists\CategoriesList.txt')
+CunsomerIDListFile = Path('D:\Media\Documents\Edumacate\FALL 2020\CS 431\Amazon data set\CS-431-Final-Project\Lists\CunsomerIDList.txt')
+ReviewsWithASINFile = Path('D:\Media\Documents\Edumacate\FALL 2020\CS 431\Amazon data set\CS-431-Final-Project\Lists\ReviewsWithASIN.txt')
+
 
 CustomerIDSet = set()
 CategoriesSet = set()
 ASINSet = set()
+ReviewsWithASIN = []
 
-import pyparsing as pp
-from pyparsing import Literal
-import time as timer
+
+
 
 def IDLineFunction(s):
     result = ''
@@ -23,7 +35,9 @@ def ASINLineFunction(s):
     result = ''
     global ASINSet
     for i in range(5,len(s)):
-        result += s[i] 
+        result += s[i]
+        
+    result = result [:-1]
     ASINSet.add(result)
     return result
 
@@ -97,10 +111,11 @@ def NumOfReviewsFinder(s):
 
 
 
-def ReviewsParser(s):
+def ReviewsParser(s, cASIN):
     #print("Attempting to parse the following line: ")
     #print("->" + s + "<-")
     global CustomerIDSet
+    global ReviewsWithASIN
     reviewFormat = (pp.Word(pp.nums+'-') + 
           Literal('cutomer:').suppress() + pp.Word(pp.alphanums) + 
           Literal('rating:').suppress() + pp.Word(pp.nums) + 
@@ -111,7 +126,9 @@ def ReviewsParser(s):
     #print(reviewFormat.searchString(s))
     
     if reviewB != '':
-         CustomerIDSet.add(reviewB[1])   
+         CustomerIDSet.add(reviewB[1])
+         reviewB.insert(0,cASIN)
+         ReviewsWithASIN.append(reviewB)
     
     return reviewB
     
@@ -126,7 +143,7 @@ def timeAvg(s):
 #Reading in the Amazon Co-purchase dataset
 
 Start = timer.perf_counter()
-AmazonDataFP = open("amazon-meta.txt","r",encoding="utf8")
+AmazonDataFP = open(amazonMetaFile,"r",encoding="utf8")
 fileText = AmazonDataFP.readlines()
 Stop = timer.perf_counter()
 AmazonDataFP.close()
@@ -150,14 +167,14 @@ Reviews = []
 discontunedProductsCount = 0;
 
 
-testingLines = 100000
+testingLines = 10000
 timeAverages = []
 
 #Parsing all the lines of the txt file and seperating into diffrent arrs
 Start = timer.perf_counter()
 StartOfMil = Start
-for i in range(len(fileText)):
-#for i in range(testingLines):
+#for i in range(len(fileText)):
+for i in range(testingLines):
     isAnIDLine = fileText[i]
     
     if(((i%100000) == 0) & (i > 0)):
@@ -178,7 +195,7 @@ for i in range(len(fileText)):
         
         i += 1
         ASINs.append(ASINLineFunction(fileText[i]))
-        
+        currentASIN = ASINLineFunction(fileText[i])
         i += 1
         #print(fileText[i])
         if(fileText[i] == '  discontinued product\n'):
@@ -213,7 +230,7 @@ for i in range(len(fileText)):
                 i += 1
                 #ReviewsList.append(fileText[i])
                 if(fileText[i] != '\n'):
-                    ReviewsList.append(ReviewsParser(fileText[i]))
+                    ReviewsList.append(ReviewsParser(fileText[i],currentASIN))
                 else:
                     #print("Empty Line Found")
                     #j = CurrentItemNumberOfReviews+1
@@ -225,35 +242,13 @@ for i in range(len(fileText)):
 totalDataParseTime = timer.perf_counter()
 
 
-#Creat txt file of all consumer IDs
-"""
-print("Creating list of all consumber IDs")
 
-customerIDList = []
-
-IDListTimerStart = timer.perf_counter()
-for i in range(len(Reviews)):
-    for j in range(len(Reviews[i])):
-        
-        if Reviews[i][j] != '':
-            customerIDBuffer = Reviews[i][j][1]
-            #print("Checing customer ID: " + customerIDBuffer)
-            if customerIDBuffer not in customerIDList:
-                customerIDList.append(customerIDBuffer)
-                #print("Customer: " + customerIDBuffer + " already in list")
-            #else:
-                #print("Customer: " + customerIDBuffer + " added to list")
-        else:
-            Reviews[i].pop(j)
-IDListTimerStop = timer.perf_counter()            
-print("Creation of customer IDs list took: " + str(round(IDListTimerStop-IDListTimerStart,2)) + "secs" )
-  """  
 
 #Printing customer ID list to txt file
 
 print("Creating txt file containing customer ID lists")
 IDTxtFileStart = timer.perf_counter()     
-customerIDFile = open("CunsomerIDList.txt","w+")
+customerIDFile = open(CunsomerIDListFile,"w+")
 
 for i in range(len(CustomerIDSet)):
     if(i % 10000) == 0:
@@ -265,23 +260,10 @@ customerIDFile.close()
 IDTxtFileStop = timer.perf_counter()   
 print("Creation of customer IDs txt file took: " + str(round(IDTxtFileStop-IDTxtFileStart,2)) + "secs" )
 
-#Creating list of all ASINS
-"""
-print("Cleaning list of ASINS")
-
-ASINFinalList = []
-ASINCleaningStart = timer.perf_counter()   
-for i in range(len(ASINs)):
-    if ASINs[i] not in ASINFinalList:
-        ASINFinalList.append(ASINs[i])
-ASINCleaningStop = timer.perf_counter()  
-print("ASIN list cleaning took: " + str(round(ASINCleaningStop-ASINCleaningStart,2)) + "secs" )       
-"""
-
 
 #Creating and printing ASINs to a txt file
 ASINTxtFileStart = timer.perf_counter()     
-ASINFile = open("ASINList.txt","w+")
+ASINFile = open(ASINListFile,"w+")
 
 for i in range(len(ASINSet)):
     if(i % 10000) == 0:
@@ -294,24 +276,9 @@ ASINTxtFileStop = timer.perf_counter()
 print("Creation of ASIN txt file took: " + str(round(ASINTxtFileStop-ASINTxtFileStart,2)) + "secs" )
 
 
-
-#Creating list of categories without dups
-"""
-CategoriesList = []
-CategoriesCleanStart = timer.perf_counter() 
-for i in range(len(Categories)):
-    for j in range(len(Categories[i])):
-        for k in range(len(Categories[i][j])):
-            if Categories[i][j] != '':
-                if Categories[i][j][k] not in CategoriesList:
-                    CategoriesList.append(Categories[i][j][k])
-CategoriesCleanStop = timer.perf_counter() 
-print("Categories list cleaning took: " + str(round(CategoriesCleanStop-CategoriesCleanStart,2)) + "secs" )     
-"""
-
 #Creating a txt file that contains all diffrent categories
 CategoriesFileStart = timer.perf_counter()
-CategoriesFile = open("CategoriesList.txt","w+")
+CategoriesFile = open(CategoriesListFile,"w+")
 
 for i in range(len(CategoriesSet)):
     if(i % 10000) == 0:
@@ -323,6 +290,24 @@ for i in range(len(CategoriesSet)):
 CategoriesFile.close
 CategoriesFileStop = timer.perf_counter()
 print("Categories file creation took: " + str(round(CategoriesFileStop-CategoriesFileStart,2)) + "secs" )
+
+#Creating a txt file that contains all reviews with ASIN as first value
+ReviewsASINStart = timer.perf_counter()
+ReviewASINFile = open(ReviewsWithASINFile,"w+")
+
+for i in range(len(ReviewsWithASIN)):
+    if(i % 10000) == 0:
+        print("ASIN andR reviews write current i is: " + str(i) + " out of " + str(len(ReviewsWithASIN)))
+    for j in range(len(ReviewsWithASIN[i])):
+        ReviewASINFile.write(ReviewsWithASIN[i][j] + ' ')
+    #ReviewASINFile.write(ReviewsWithASIN[i])
+    ReviewASINFile.write('\n')
+    
+ReviewASINFile.close
+ReviewsASINStart = timer.perf_counter()
+print("ASIN andR reviews write file creation took: " + str(round(CategoriesFileStop-CategoriesFileStart,2)) + "secs" )
+
+
 
 
 print()
